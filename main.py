@@ -20,6 +20,14 @@ class Ejemplar:
         self.status = status
         pass
 
+class UsuarioEjemplar:
+
+    def __init__(self, DNI, nro, fecha):
+        self.Usuario_DNI = DNI
+        self.Ejemplar_nro = nro
+        self.fecha = fecha
+        pass
+
 class Libro:
 
     def __init__(self, ISBN, titulo, anio, temas):
@@ -36,6 +44,13 @@ class Autor:
         self.cod = cod
         self.nombre = nombre
         self.premios = premios
+        pass
+
+class AutorLibro:
+
+    def __init__(self, Autor_cod, ISBN) -> None:
+        self.Autor_cod = Autor_cod
+        self.ISBN = ISBN
         pass
 
 class Editorial:
