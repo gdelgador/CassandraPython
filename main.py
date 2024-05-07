@@ -67,3 +67,20 @@ class Pais:
         self.cod = cod
         self.nombre = nombre
         pass
+
+#Programa principal
+#Conexión con Cassandra
+
+try:
+    cluster = Cluster()
+    session = cluster.connect('gonzalodelgado')
+    numero = -1
+
+
+except Exception as e:
+    print(e)
+finally:
+    #cerramos conexion
+    cluster.shutdown()
+
+
