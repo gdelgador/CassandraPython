@@ -162,15 +162,32 @@ def insertTabla7():
 
 #Programa principal
 #Conexión con Cassandra
+OPCIONES_MENU = """
+Introduzca un número para ejecutar una de las siguientes operaciones:
+1. 
+
+0. Cerrar aplicación
+Ingrese su opcion: """
+
 
 try:
     cluster = Cluster()
     session = cluster.connect('gonzalodelgado')
-    numero = -1
 
+    # Sigue pidiendo operaciones hasta que se introduzca 0
+    while True:
+        respuesta = input(OPCIONES_MENU)
+        if respuesta == '1':
+            pass
+        elif respuesta == '0':
+            break
+        else:
+            print('Comando desconocido, vuelva a ingresar')
+        pass
 
 except Exception as e:
     print(e)
 finally:
     #cerramos conexion
+    print('Finzalizando programa')
     cluster.shutdown()
