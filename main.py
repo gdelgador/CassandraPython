@@ -1,7 +1,9 @@
 #Importación de librerias necesarias para conexión con Cassandra y gestión de fechas
 
 from cassandra.cluster import Cluster
+from cassandra import AlreadyExists
 from datetime import date, datetime
+from pprint import pprint
 
 
 class Usuario:
@@ -31,22 +33,14 @@ class UsuarioEjemplar:
 
 
 class Libro:
-    """Clase Libro"""
     def __init__(self, ISBN, titulo, anio, temas):
         self.ISBN = ISBN
         self.titulo = titulo
         self.anio = anio
         self.temas = temas
-        pass
 
     def __str__(self):
-        return f"""
-           libro: {self.ISBN}
-           titulo: {self.titulo}
-           anio: {self.anio}
-           temas: {self.temas}
-           """
-
+        return f'Libro(ISBN: {self.ISBN}, Título: {self.titulo}, Año: {self.anio}, Temas: {self.temas})'
 
 class Autor:
 
@@ -170,14 +164,75 @@ def insertTabla7():
     pass
 
 def insert_es_prestado():
-    """Método de inserción para relación es_prestado"""
+    """Método de inserción a todas las tablas para relación es_prestado"""
     
-    autor_cod = get_int("Ingrese el autor cod: ")
+    # solicito datos a usuario
+    usuario_dni = input("Ingrese el dni del usuario: ").strip().upper()
     ejemplar_nro = get_int("Ingrese el nro de ejemplar: ")
+    ejemplar_status = get_int("Ingrese el status de ejemplar: ")
     fecha = get_date("Ingrese la fecha de prestamo en formato YYYY-MM-DD: ")
-
+    
+    # traigo datos de tabla soporte
+    user = extraer_data_tabla_soporte_usuario(dni=usuario_dni)
+    
+    if not user:
+        print('No se encontro user, primero se debe insertar opcion 2')
+        return None
+    
+    # Insetamos a tabla8 correspondiente
+    insertTabla8 = session.prepare(
+        "INSERT INTO tabla8(fecha, ejemplar_nro, usuario_dni, ejemplar_status, usuario_nombre, usuario_ciudad, usuario_calle) VALUES(?, ?, ?, ?, ?, ?, ?)"
+        )
+    session.execute(insertTabla8, [fecha, ejemplar_nro, user.DNI, ejemplar_status, user.nombre, user.ciudad, user.calle])
+    
+    # insertamos sobre tabla 6
+    try:
+        pass
+    except AlreadyExists:
+        pass
+    
     
     pass
+
+
+def insert_corresponde_es_prestado():
+    """Método de inserción a todas las tablas para relación corresponde_es_prestado"""
+    
+    libro_isbn = input("Ingrese el autor cod: ").strip().upper()
+    usuario_dni = input("Ingrese el dni del usuario: ").strip().upper()
+    
+    ejemplar_nro = get_int("Ingrese el nro de ejemplar: ")
+    fecha = get_date("Ingrese la fecha de prestamo en formato YYYY-MM-DD: ")
+    
+    # VALIDAR
+    ejemplar_status = input("Ingrese el status del ejemplar: ").strip().upper()
+    
+    # traigo datos de tabla soporte
+    user = extraer_data_tabla_soporte_usuario(dni=usuario_dni)
+    libro = extraer_data_tabla_soporte_libro(libro_isbn=libro_isbn)
+    
+    if not user:
+        print('No se encontro user, primero se debe insertar opcion 2')
+        return None
+    
+    if not libro:
+        print('No se encontro libro, primero se debe insertar opcion 1')
+        return None
+    
+    # Insetamos a tabla2 correspondiente
+    
+    insertTabla2 = session.prepare(
+        "INSERT INTO tabla2(libro_titulo, libro_isbn, ejemplar_nro, ejemplar_status) VALUES(?, ?, ?, ?)"
+        )
+    session.execute(insertTabla2, [libro.titulo, libro.ISBN, ejemplar_nro, ejemplar_status])
+    
+    # Insetamos a tabla4 correspondiente
+    insertTabla4 = session.prepare(
+        "INSERT INTO tabla4(libro_titulo,usuario_dni,libro_isbn,ejemplar_nro,usuario_nombre,usuario_ciudad,usuario_calle,) VALUES(?, ?, ?, ?, ?,?,?)"
+        )
+    session.execute(insertTabla4, [libro.titulo, user.DNI, libro.ISBN, ejemplar_nro, user.nombre, user.ciudad, user.calle])
+    pass
+
 
 def actualizar_anio_publicacion_libro():
     """Actualiza anio de publicacion de un libro en base a su ISBN"""
@@ -234,6 +289,9 @@ def eliminar_autor_por_premio():
     )
     session.execute(deleteTabla7, [premio, listado_cod_autores])
     
+    deleteSoporteAutor = session.prepare("DELETE FROM SoporteAutor autor_cod IN ?")
+    session.execute(deleteSoporteAutor, [listado_cod_autores,])
+    
     print(f'Se eliminaron autores cod [{listado_cod_autores}] de tabla ')
     pass
 
@@ -256,6 +314,86 @@ def extraer_data_tabla_soporte_libro(libro_isbn:str):
     datos_retornar = [Libro(fila.libro_isbn, fila.libro_titulo, fila.libro_anio, fila.libro_temas) for fila in filas]
     return datos_retornar[0] if datos_retornar else None
 
+def extraer_data_tabla_soporte_usuario(dni:str):
+    """Extrae información de tabla SoporteUsuario de acuerdo a usuario_dni"""
+    select = session.prepare("SELECT * FROM SoporteUsuario WHERE usuario_dni = ?")
+    # retornamos valores
+    filas = session.execute(select, [dni, ])
+
+    # solo debe haber un registro
+    datos_retornar = [Usuario(fila.usuario_dni, fila.usuario_nombre, fila.usuario_ciudad, fila.usuario_calle) for fila in filas]
+    return datos_retornar[0] if datos_retornar else None
+
+def consultar_libros_segun_anio():
+    """
+    Obtener toda la información de libros publicados en un año en concreto.
+    """
+    anio = get_int('Ingrese el año de publicación a buscar: ')
+    
+    select = session.prepare('SELECT * FROM tabla1 WHERE libro_anio=?')
+    filas = session.execute(select, [anio, ])
+    
+    datos_retornar = [Libro(ISBN=fila.libro_isbn,
+                            titulo=fila.libro_titulo,
+                            anio=fila.libro_anio,
+                            temas=fila.libro_temas) for fila in filas]
+    
+    if not datos_retornar:
+        print('No hay datos que retornar ..')
+        return None
+    
+    for libro in datos_retornar:
+        print(libro)
+
+
+def consultar_libros_titulo():
+    """Obtener toda la información de los ejemplares de un libro según el título de este."""
+    titulo = input("Ingrese el título del libro: ").strip().upper()
+
+    select = session.prepare("SELECT * FROM tabla2 WHERE libro_titulo = ?")
+    filas = session.execute(select, [titulo, ])
+
+    datos_retornar = [(fila.libro_titulo,  fila.libro_isbn, fila.ejemplar_nro, fila.ejemplar_status) for fila in filas]
+    
+    if not datos_retornar:
+        print("No se encontraron ejemplares para el libro ingresado.")
+        return None
+    
+    for item in datos_retornar:
+        print('='*50)
+        print(f'Libro titulo: {item[0]}')
+        print(f'Libro isbn: {item[1]}')
+        print(f'Ejemplar nro: {item[2]}')
+        print(f'Ejemplar status: {item[3]}')
+    pass
+
+def consultar_usuario_segun_libro():
+    """Obtener los usuarios que han tomado prestado el ejemplar de un libro según el título de un libro"""
+    titulo_libro = input("Ingrese el título del libro: ").strip().upper()
+
+    select = session.prepare("SELECT * FROM tabla4 WHERE libro_titulo = ?")
+    filas = session.execute(select, [titulo_libro, ])
+
+    datos_retornar = [(fila.libro_titulo, fila.usuario_dni, fila.libro_isbn, fila.ejemplar_nro, fila.usuario_nombre, fila.usuario_ciudad, fila.usuario_calle) for fila in filas]
+
+    if not datos_retornar:
+        print("No se encontraron usuarios para el libro especificado.")
+        return None
+    
+    for item in datos_retornar:
+        print('='*50)
+        print(f"""
+              Libro: {item[0]},
+              Usuario DNI: {item[1]}, 
+              Libro ISBN: {item[2]}, 
+              Ejemplar Nro: {item[3]},
+              Usuario Nombre: {item[4]},
+              Usuario Ciudad: {item[5]},
+              Usuario Calle: {item[6]}
+              """)
+
+    pass
+
 #Programa principal
 #Conexión con Cassandra
 OPCIONES_MENU = """
@@ -268,6 +406,10 @@ Introduzca un número para ejecutar una de las siguientes operaciones:
 6. Actualizar anio publicación libro
 7. Eliminar autores según premio
 
+8. Obtener información de los libros publicados en un año en concreto
+9. Obtener toda la información de los ejemplares de un libro según el título de este.
+10. Obtener los usuarios que han tomado prestado el ejemplar de un libro según el título de un libro.
+
 0. Cerrar aplicación
 Ingrese su opcion: """
 
@@ -279,6 +421,7 @@ try:
     # Sigue pidiendo operaciones hasta que se introduzca 0
     while True:
         respuesta = input(OPCIONES_MENU)
+        
         if respuesta == '1':
             insertTabla1()
             pass
@@ -289,11 +432,20 @@ try:
         elif respuesta == '4':
             insert_es_prestado()
         elif respuesta == '5':
-            pass
+            insert_corresponde_es_prestado()
         elif respuesta == '6':
             actualizar_anio_publicacion_libro()
         elif respuesta == '7':
             eliminar_autor_por_premio()
+        
+        # consultas de seleccion
+        elif respuesta == '8':
+            consultar_libros_segun_anio()
+        elif respuesta == '9':
+            consultar_libros_titulo()
+        elif respuesta == '10':
+            consultar_usuario_segun_libro()
+            
         elif respuesta == '0':
             break
         else:
