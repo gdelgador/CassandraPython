@@ -190,14 +190,12 @@ def actualizar_anio_publicacion_libro():
     if not libro:
         print('Libro no encontrado, inserte valor en opción 1')
         return None
-    # actualizamos valor anio
-    libro.anio = anio
     
-    # actualizamos en tabla soporte
+        # actualizamos en tabla soporte
     updateAnioLibroSoporte = session.prepare(
         "UPDATE soportelibro SET libro_anio = ? WHERE libro_isbn = ?"
                                              )
-    session.execute(updateAnioLibroSoporte, [libro.anio, libro.ISBN])
+    session.execute(updateAnioLibroSoporte, [anio, libro.ISBN])
 
     # Insertamos sobre tabla 1
     deleteTabla1 = session.prepare(
@@ -207,11 +205,46 @@ def actualizar_anio_publicacion_libro():
 
     insertStatement = session.prepare(
         "INSERT INTO tabla1(libro_anio, libro_isbn,libro_titulo, libro_temas) VALUES (?, ?, ?, ?)")
-    session.execute(insertStatement, [libro.anio, libro.ISBN, libro.titulo, libro.temas])
+    session.execute(insertStatement, [anio, libro.ISBN, libro.titulo, libro.temas])
 
-    print(f'Se actualizaron tablas para isbn {libro.ISBN}')
+    print(f'Se actualizaron tablas libro')
+    libro_actualizado = extraer_data_tabla_soporte_libro(libro_isbn=isbn)
+    print(libro_actualizado)
     pass
 
+
+def eliminar_autor_por_premio():
+    """Elimina Autores de tabla de acuerdo a su premio"""
+    
+    premio = input("Ingrese el premio a buscar: ").strip().upper()
+
+    if not premio:
+        print('No se ingreso valor premio ...')
+        return None
+
+    listado_cod_autores = extraer_autores_por_premio(premio=premio)
+
+    if not listado_cod_autores:
+        print('No se retornaron valores de tabla ...')
+        return None
+
+    # Borramos datos de tabla
+    deleteTabla7 = session.prepare(
+        "DELETE FROM tabla7 WHERE premios_premio= ? AND autor_cod in ?"
+    )
+    session.execute(deleteTabla7, [premio, listado_cod_autores])
+    
+    print(f'Se eliminaron autores cod [{listado_cod_autores}] de tabla ')
+    pass
+
+def extraer_autores_por_premio(premio:str):
+    """Extrae el cod_autor de la tabla 7 según el premio ingresado"""
+
+    select = session.prepare("SELECT autor_cod FROM tabla7 WHERE premios_premio = ?")
+    filas = session.execute(select, [premio, ])
+    # a lista
+    datos_retornar = [fila.autor_cod for fila in filas]
+    return datos_retornar if datos_retornar else None
 
 def extraer_data_tabla_soporte_libro(libro_isbn:str):
     """Extrae información de tabla SoporteLibro de acuerdo a libro_isbn"""
@@ -231,7 +264,9 @@ Introduzca un número para ejecutar una de las siguientes operaciones:
 2. Insertar un Usuario
 3. Insertar Premio Autor
 4. Insertar relacion es_prestado
-5. Actualizar anio publicación libro
+5. Insertar relacion prestamo_es_prestado
+6. Actualizar anio publicación libro
+7. Eliminar autores según premio
 
 0. Cerrar aplicación
 Ingrese su opcion: """
@@ -254,7 +289,11 @@ try:
         elif respuesta == '4':
             insert_es_prestado()
         elif respuesta == '5':
+            pass
+        elif respuesta == '6':
             actualizar_anio_publicacion_libro()
+        elif respuesta == '7':
+            eliminar_autor_por_premio()
         elif respuesta == '0':
             break
         else:
