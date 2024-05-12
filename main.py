@@ -1,9 +1,7 @@
 #Importación de librerias necesarias para conexión con Cassandra y gestión de fechas
 
 from cassandra.cluster import Cluster
-from cassandra import AlreadyExists
 from datetime import date, datetime
-from pprint import pprint
 
 
 class Usuario:
@@ -13,26 +11,33 @@ class Usuario:
         self.nombre = nombre
         self.calle = calle
         self.ciudad = ciudad
-        pass
+
+    def __str__(self):
+        return f'Usuario(DNI: {self.DNI}, Nombre: {self.nombre}, Calle: {self.calle}, Ciudad: {self.ciudad})'
+
 
 class Ejemplar:
     """Clase Ejemplar"""
     def __init__(self, nro, status):
         self.nro = nro
         self.status = status
-        pass
 
+    def __str__(self):
+        return f'Ejemplar(Número: {self.nro}, Estado: {self.status})'
 
-class UsuarioEjemplar:
+class UsuarioEjemplar(Usuario):
     """Clase UsuarioEjemplar"""
-    def __init__(self, DNI, nro, fecha):
-        self.Usuario_DNI = DNI
+    def __init__(self, DNI, nombre, calle, ciudad, nro, fecha):
+        super().__init__(DNI, nombre, calle, ciudad)
         self.Ejemplar_nro = nro
         self.fecha = fecha
-        pass
+
+    def __str__(self):
+        return f'UsuarioEjemplar({super().__str__()}, Ejemplar Número: {self.Ejemplar_nro}, Fecha: {self.fecha})'
 
 
 class Libro:
+    """Clase Libro"""
     def __init__(self, ISBN, titulo, anio, temas):
         self.ISBN = ISBN
         self.titulo = titulo
@@ -43,7 +48,7 @@ class Libro:
         return f'Libro(ISBN: {self.ISBN}, Título: {self.titulo}, Año: {self.anio}, Temas: {self.temas})'
 
 class Autor:
-
+    """Clase Autor"""
     def __init__(self, cod, nombre, premios):
         self.cod = cod
         self.nombre = nombre
@@ -52,10 +57,12 @@ class Autor:
 
 class AutorLibro:
     """Clase AutorLibro"""
-    def __init__(self, Autor_cod, ISBN) -> None:
+    def __init__(self, Autor_cod, ISBN):
         self.Autor_cod = Autor_cod
         self.ISBN = ISBN
-        pass
+
+    def __str__(self):
+        return f'AutorLibro(Autor_cod: {self.Autor_cod}, ISBN: {self.ISBN})'
 
 class Editorial:
     """Clase Editorial"""
@@ -186,11 +193,10 @@ def insert_es_prestado():
     session.execute(insertTabla8, [fecha, ejemplar_nro, user.DNI, ejemplar_status, user.nombre, user.ciudad, user.calle])
     
     # insertamos sobre tabla 6
-    try:
-        pass
-    except AlreadyExists:
-        pass
-    
+    updateTabla6 = session.prepare(
+        "UPDATE tabla6 SET prestamos = prestamos + 1 WHERE ejemplar_nro = ? and usuario_dni = ?"
+        )
+    session.execute(updateTabla6, [ejemplar_nro, user.DNI])
     
     pass
 
@@ -246,7 +252,7 @@ def actualizar_anio_publicacion_libro():
         print('Libro no encontrado, inserte valor en opción 1')
         return None
     
-        # actualizamos en tabla soporte
+    # actualizamos en tabla soporte
     updateAnioLibroSoporte = session.prepare(
         "UPDATE soportelibro SET libro_anio = ? WHERE libro_isbn = ?"
                                              )
@@ -394,6 +400,82 @@ def consultar_usuario_segun_libro():
 
     pass
 
+def consultar_usuario_por_ciudad():
+    """Obtener información de usuarios según ciudad"""
+    ciudad = input("Ingrese la ciudad: ").strip().upper()
+
+    select = session.prepare("SELECT * FROM tabla5 WHERE usuario_ciudad = ?")
+    filas = session.execute(select, [ciudad, ])
+
+    datos_retornar = [(fila.usuario_ciudad,fila.usuario_calle,fila.usuario_nombre,fila.usuario_dni) for fila in filas]
+
+    if not datos_retornar:
+        print("No se encontraron usuarios en la ciudad especificada.")
+        return None
+    
+    for item in datos_retornar:
+        print('='*50)
+        print(f"""
+              Ciudad: {item[0]},
+              Calle: {item[1]}, 
+              Nombre: {item[2]}, 
+              DNI: {item[3]}
+              """)
+
+    pass
+
+def consultar_autores_por_premio():
+    """Obtener la información de los autores que hayan ganado un premio específico"""
+    
+    premio = input('Ingrese el premio a buscar: ').strip().upper()
+    
+    select  = session.prepare("SELECT * FROM tabla7 WHERE premios_premio = ?")
+    filas = session.execute(select, [premio, ])
+    
+    datos_retornar = [(fila.premios_premio,fila.autor_cod,fila.autor_nombre) for fila in filas]
+    
+    if not datos_retornar:
+        print("No se encontraron datos para el premio ingresado.")
+        return None
+    
+    for item in datos_retornar:
+        print('='*50)
+        print(f"""
+              Premio: {item[0]},
+              Cod Autor: {item[1]}, 
+              Autor Nombre: {item[2]}
+              """)
+    
+    
+    pass
+
+
+def consultar_segun_fecha_usuario_ejemplar():
+    """Buscar según la fecha de préstamo los ejemplares prestados y el usuario que lo tomó prestado."""
+    
+    fecha = get_date("Ingrese la fecha de prestamo en formato YYYY-MM-DD: ")
+    
+    select  = session.prepare("SELECT * FROM tabla8 WHERE fecha = ?")
+    filas = session.execute(select, [fecha, ])
+    datos_retornar = [UsuarioEjemplar(DNI=fila.usuario_dni,
+                                      nombre=fila.usuario_nombre,
+                                      calle=fila.usuario_calle,
+                                      ciudad=fila.usuario_ciudad,
+                                      nro=fila.ejemplar_nro,
+                                      fecha=fila.fecha 
+                                      )
+                      for fila in filas]
+    
+    
+    if not datos_retornar:
+        print("No se encontraron para la fecha ingresada.")
+        return None
+    
+    for item in datos_retornar:
+        print('='*50)
+        print(item)
+    pass
+
 #Programa principal
 #Conexión con Cassandra
 OPCIONES_MENU = """
@@ -405,10 +487,12 @@ Introduzca un número para ejecutar una de las siguientes operaciones:
 5. Insertar relacion prestamo_es_prestado
 6. Actualizar anio publicación libro
 7. Eliminar autores según premio
-
 8. Obtener información de los libros publicados en un año en concreto
 9. Obtener toda la información de los ejemplares de un libro según el título de este.
 10. Obtener los usuarios que han tomado prestado el ejemplar de un libro según el título de un libro.
+11. Obtener información de usuarios según ciudad
+12. Obtener la información de los autores que hayan ganado un premio específico
+13. Buscar según la fecha de préstamo los ejemplares prestados y el usuario que lo tomó prestado.
 
 0. Cerrar aplicación
 Ingrese su opcion: """
@@ -429,10 +513,14 @@ try:
             insertTabla5()
         elif respuesta == '3':
             insertTabla7()
+        
+        # relacion prestamos 
         elif respuesta == '4':
             insert_es_prestado()
         elif respuesta == '5':
             insert_corresponde_es_prestado()
+            
+        # actualizacion eliminado de datos
         elif respuesta == '6':
             actualizar_anio_publicacion_libro()
         elif respuesta == '7':
@@ -445,6 +533,12 @@ try:
             consultar_libros_titulo()
         elif respuesta == '10':
             consultar_usuario_segun_libro()
+        elif respuesta == '11':
+            consultar_usuario_por_ciudad()
+        elif respuesta == '12':
+            consultar_autores_por_premio()
+        elif respuesta == '13':
+            consultar_segun_fecha_usuario_ejemplar()
             
         elif respuesta == '0':
             break
