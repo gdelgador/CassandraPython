@@ -176,7 +176,7 @@ def insert_es_prestado():
     # solicito datos a usuario
     usuario_dni = input("Ingrese el dni del usuario: ").strip().upper()
     ejemplar_nro = get_int("Ingrese el nro de ejemplar: ")
-    ejemplar_status = get_int("Ingrese el status de ejemplar: ")
+    ejemplar_status = input("Ingrese el status de ejemplar: ").strip().upper()
     fecha = get_date("Ingrese la fecha de prestamo en formato YYYY-MM-DD: ")
     
     # traigo datos de tabla soporte
@@ -194,7 +194,7 @@ def insert_es_prestado():
     
     # insertamos sobre tabla 6
     updateTabla6 = session.prepare(
-        "UPDATE tabla6 SET prestamos = prestamos + 1 WHERE ejemplar_nro = ? and usuario_dni = ?"
+        "UPDATE tabla6 SET cantidad = cantidad + 1 WHERE ejemplar_nro = ? and usuario_dni = ?"
         )
     session.execute(updateTabla6, [ejemplar_nro, user.DNI])
     
@@ -204,11 +204,11 @@ def insert_es_prestado():
 def insert_corresponde_es_prestado():
     """Método de inserción a todas las tablas para relación corresponde_es_prestado"""
     
-    libro_isbn = input("Ingrese el autor cod: ").strip().upper()
+    libro_isbn = input("Ingrese el isbn libro: ").strip().upper()
     usuario_dni = input("Ingrese el dni del usuario: ").strip().upper()
     
     ejemplar_nro = get_int("Ingrese el nro de ejemplar: ")
-    fecha = get_date("Ingrese la fecha de prestamo en formato YYYY-MM-DD: ")
+    # fecha = get_date("Ingrese la fecha de prestamo en formato YYYY-MM-DD: ")
     
     # VALIDAR
     ejemplar_status = input("Ingrese el status del ejemplar: ").strip().upper()
@@ -234,7 +234,7 @@ def insert_corresponde_es_prestado():
     
     # Insetamos a tabla4 correspondiente
     insertTabla4 = session.prepare(
-        "INSERT INTO tabla4(libro_titulo,usuario_dni,libro_isbn,ejemplar_nro,usuario_nombre,usuario_ciudad,usuario_calle,) VALUES(?, ?, ?, ?, ?,?,?)"
+        "INSERT INTO tabla4(libro_titulo,usuario_dni,libro_isbn,ejemplar_nro,usuario_nombre,usuario_ciudad,usuario_calle) VALUES(?, ?, ?, ?, ?,?,?)"
         )
     session.execute(insertTabla4, [libro.titulo, user.DNI, libro.ISBN, ejemplar_nro, user.nombre, user.ciudad, user.calle])
     pass
@@ -295,7 +295,7 @@ def eliminar_autor_por_premio():
     )
     session.execute(deleteTabla7, [premio, listado_cod_autores])
     
-    deleteSoporteAutor = session.prepare("DELETE FROM SoporteAutor autor_cod IN ?")
+    deleteSoporteAutor = session.prepare("DELETE FROM SoporteAutor WHERE autor_cod IN ?")
     session.execute(deleteSoporteAutor, [listado_cod_autores,])
     
     print(f'Se eliminaron autores cod [{listado_cod_autores}] de tabla ')
